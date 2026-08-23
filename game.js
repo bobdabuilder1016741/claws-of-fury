@@ -1,1103 +1,618 @@
 const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x101827);
+scene.fog=new THREE.Fog(0x101827,35,180);
 
-scene.background=new THREE.Color(0x111827);
-scene.fog=new THREE.Fog(0x111827,35,180);
-
-const camera=new THREE.PerspectiveCamera(
-70,
-innerWidth/innerHeight,
-.1,
-500
-);
-
-const renderer=new THREE.WebGLRenderer({
-antialias:true
-});
-
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,500);
+const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-
 document.getElementById("game").appendChild(renderer.domElement);
 
+scene.add(new THREE.HemisphereLight(0xbfd8ff,0x202030,1.8));
 
-/* LIGHTING */
-
-scene.add(
-new THREE.HemisphereLight(
-0xbfd8ff,
-0x202030,
-1.8
-)
-);
-
-const sun=new THREE.DirectionalLight(
-0xffffff,
-2.3
-);
-
+const sun=new THREE.DirectionalLight(0xffffff,2.2);
 sun.position.set(40,70,25);
 sun.castShadow=true;
-sun.shadow.mapSize.width=2048;
-sun.shadow.mapSize.height=2048;
-
 scene.add(sun);
 
-
-/* GROUND */
-
 const ground=new THREE.Mesh(
-new THREE.PlaneGeometry(400,400),
-new THREE.MeshStandardMaterial({
-color:0x292c33,
-roughness:.9
-})
+ new THREE.PlaneGeometry(400,400),
+ new THREE.MeshStandardMaterial({color:0x292c33,roughness:.9})
 );
-
 ground.rotation.x=-Math.PI/2;
 ground.receiveShadow=true;
-
 scene.add(ground);
 
-
-/* BUILDINGS */
-
 function building(x,z,w,h,d){
+ const b=new THREE.Mesh(
+  new THREE.BoxGeometry(w,h,d),
+  new THREE.MeshStandardMaterial({
+   color:new THREE.Color(.08+Math.random()*.08,.1+Math.random()*.08,.15+Math.random()*.1),
+   roughness:.8
+  })
+ );
+ b.position.set(x,h/2,z);
+ b.castShadow=true;
+ scene.add(b);
 
-const material=new THREE.MeshStandardMaterial({
-color:new THREE.Color(
-.08+Math.random()*.08,
-.1+Math.random()*.08,
-.15+Math.random()*.1
-),
-roughness:.8
-});
-
-const b=new THREE.Mesh(
-new THREE.BoxGeometry(w,h,d),
-material
-);
-
-b.position.set(x,h/2,z);
-b.castShadow=true;
-b.receiveShadow=true;
-
-scene.add(b);
-
-for(let y=4;y<h-1;y+=4){
-
-for(let xx=-w/2+1;xx<w/2-1;xx+=2){
-
-const window=new THREE.Mesh(
-new THREE.PlaneGeometry(.7,1.1),
-new THREE.MeshBasicMaterial({
-color:Math.random()>.35?
-0xffd36b:
-0x162034
-})
-);
-
-window.position.set(
-x+xx,
-y,
-z-d/2-.02
-);
-
-scene.add(window);
-
-}
-
-}
-
+ for(let y=4;y<h-1;y+=4){
+  for(let xx=-w/2+1;xx<w/2-1;xx+=2){
+   const win=new THREE.Mesh(
+    new THREE.PlaneGeometry(.7,1.1),
+    new THREE.MeshBasicMaterial({color:Math.random()>.35?0xffd36b:0x172034})
+   );
+   win.position.set(x+xx,y,z-d/2-.02);
+   scene.add(win);
+  }
+ }
 }
 
 for(let x=-100;x<=100;x+=20){
-
-for(let z=-100;z<=100;z+=20){
-
-if(Math.abs(x)<30&&Math.abs(z)<30)continue;
-
-building(
-x+(Math.random()-.5)*5,
-z+(Math.random()-.5)*5,
-13+Math.random()*5,
-12+Math.random()*35,
-13+Math.random()*5
-);
-
+ for(let z=-100;z<=100;z+=20){
+  if(Math.abs(x)<30&&Math.abs(z)<30)continue;
+  building(x+(Math.random()-.5)*5,z+(Math.random()-.5)*5,13+Math.random()*5,12+Math.random()*35,13+Math.random()*5);
+ }
 }
 
+function mat(color,metal=0,rough=.6){
+ return new THREE.MeshStandardMaterial({color,metalness:metal,roughness:rough});
 }
 
-
-/* MATERIAL */
-
-function material(color,metal=.0,rough=.6){
-
-return new THREE.MeshStandardMaterial({
-color:color,
-metalness:metal,
-roughness:rough
-});
-
-}
-
-
-/* SUITS */
-
-const suits={
-
-classic:{
-name:"Classic Yellow & Blue",
-body:0x2455a4,
-accent:0xe4c52c,
-boots:0x151a25
-},
-
-winter:{
-name:"Winter Soldier",
-body:0x171b24,
-accent:0x8c1d2c,
-boots:0x090b10,
-metal:0xbfc7cf
-},
-
-oldlogan:{
-name:"Old Man Logan",
-body:0x704d35,
-accent:0xa87b4f,
-boots:0x25201d
-},
-
-stealth:{
-name:"Stealth",
-body:0x111318,
-accent:0x343943,
-boots:0x08090b
-},
-
-arctic:{
-name:"Arctic",
-body:0xdde8ee,
-accent:0x3b7cae,
-boots:0x26313c
-},
-
-future:{
-name:"Future",
-body:0x4b4f58,
-accent:0x19a9c7,
-boots:0x161a22
-}
-
+const spy={
+ group:new THREE.Group(),
+ yaw:0,
+ pitch:0,
+ velocity:new THREE.Vector3(),
+ shooting:false,
+ shootTimer:0,
+ ammo:12,
+ maxAmmo:12,
+ reload:0,
+ combo:0,
+ comboTimer:0,
+ adrenaline:0,
+ adrenalineMode:false,
+ adrenalineTime:0,
+ level:1,
+ xp:0,
+ guns:[]
 };
 
+scene.add(spy.group);
 
-/* PLAYER */
+function createSpy(){
 
-const player={
-group:new THREE.Group(),
-suit:"classic",
-yaw:0,
-pitch:0,
-velocity:new THREE.Vector3(),
-attacking:false,
-attackTime:0,
-combo:0,
-comboTimer:0,
-rage:0,
-rageMode:false,
-rageTime:0,
-xp:0,
-level:1,
-claws:[]
-};
+ spy.group.clear();
+ spy.guns=[];
 
-scene.add(player.group);
+ const suit=mat(0x10141d,.1,.35);
+ const shirt=mat(0x202633,0,.5);
+ const skin=mat(0xc98768,0,.65);
+ const metal=mat(0x657080,1,.2);
+ const pistolMat=mat(0x17191d,.8,.2);
+ const gripMat=mat(0x08090d,0,.5);
 
+ const torso=new THREE.Mesh(
+  new THREE.CapsuleGeometry(.55,.9,6,12),
+  suit
+ );
+ torso.scale.set(1,.95,.62);
+ torso.position.y=1.6;
+ torso.castShadow=true;
+ spy.group.add(torso);
 
-/* PLAYER MODEL */
+ const shirtFront=new THREE.Mesh(
+  new THREE.BoxGeometry(.55,.55,.08),
+  shirt
+ );
+ shirtFront.position.set(0,1.7,-.38);
+ spy.group.add(shirtFront);
 
-function createPlayer(){
+ const neck=new THREE.Mesh(
+  new THREE.CylinderGeometry(.18,.2,.22,12),
+  skin
+ );
+ neck.position.y=2.25;
+ spy.group.add(neck);
 
-player.group.clear();
-player.claws=[];
+ const head=new THREE.Mesh(
+  new THREE.SphereGeometry(.47,24,18),
+  skin
+ );
+ head.position.y=2.62;
+ spy.group.add(head);
 
-const s=suits[player.suit];
+ const glasses=new THREE.Mesh(
+  new THREE.BoxGeometry(.7,.13,.04),
+  mat(0x080b12,.5,.15)
+ );
+ glasses.position.set(0,2.68,-.45);
+ spy.group.add(glasses);
 
-const bodyMat=material(s.body,0,.5);
-const accentMat=material(s.accent,.1,.4);
-const bootMat=material(s.boots,.05,.5);
-const skinMat=material(0xc98768,0,.65);
-const metalMat=material(
-s.metal||0xdbe5eb,
-1,
-.15
-);
+ const hair=new THREE.Mesh(
+  new THREE.SphereGeometry(.49,20,12),
+  mat(0x171719,0,.7)
+ );
+ hair.scale.set(1,.45,1);
+ hair.position.y=2.88;
+ spy.group.add(hair);
 
+ for(const side of[-1,1]){
 
-/* HIPS */
+  const shoulder=new THREE.Mesh(
+   new THREE.SphereGeometry(.27,16,12),
+   suit
+  );
+  shoulder.position.set(side*.62,2.02,0);
+  spy.group.add(shoulder);
 
-const hips=new THREE.Mesh(
-new THREE.BoxGeometry(1.05,.45,.65),
-accentMat
-);
+  const arm=new THREE.Mesh(
+   new THREE.CapsuleGeometry(.18,.75,5,10),
+   shirt
+  );
+  arm.position.set(side*.72,1.5,-.05);
+  arm.rotation.z=side*.12;
+  spy.group.add(arm);
 
-hips.position.y=1.05;
+  const hand=new THREE.Mesh(
+   new THREE.SphereGeometry(.18,14,10),
+   skin
+  );
+  hand.position.set(side*.78,1.05,-.18);
+  spy.group.add(hand);
 
-player.group.add(hips);
+  const gun=new THREE.Group();
 
+  const barrel=new THREE.Mesh(
+   new THREE.BoxGeometry(.13,.13,.65),
+   pistolMat
+  );
+  barrel.position.z=-.38;
+  gun.add(barrel);
 
-/* TORSO */
+  const body=new THREE.Mesh(
+   new THREE.BoxGeometry(.24,.18,.4),
+   metal
+  );
+  body.position.z=.02;
+  gun.add(body);
 
-const torso=new THREE.Mesh(
-new THREE.CapsuleGeometry(.55,.85,6,12),
-bodyMat
-);
+  const grip=new THREE.Mesh(
+   new THREE.BoxGeometry(.16,.35,.16),
+   gripMat
+  );
+  grip.position.set(0,-.2,.08);
+  grip.rotation.x=-.2;
+  gun.add(grip);
 
-torso.scale.set(1,.95,.62);
-torso.position.y=1.65;
-torso.castShadow=true;
+  gun.position.set(side*.8,1.05,-.48);
+  gun.rotation.y=side*.04;
 
-player.group.add(torso);
+  spy.group.add(gun);
+  spy.guns.push(gun);
 
+  const leg=new THREE.Mesh(
+   new THREE.CapsuleGeometry(.22,.8,5,10),
+   suit
+  );
+  leg.position.set(side*.29,.55,0);
+  spy.group.add(leg);
 
-/* CHEST */
+  const boot=new THREE.Mesh(
+   new THREE.BoxGeometry(.38,.22,.7),
+   mat(0x08090c,.1,.5)
+  );
+  boot.position.set(side*.29,.08,-.16);
+  spy.group.add(boot);
+ }
 
-const chest=new THREE.Mesh(
-new THREE.BoxGeometry(.9,.5,.08),
-accentMat
-);
-
-chest.position.set(0,1.72,-.38);
-
-player.group.add(chest);
-
-
-/* WINTER SOLDIER ARMOR */
-
-if(player.suit==="winter"){
-
-const star=new THREE.Mesh(
-new THREE.ConeGeometry(.18,0.05,5),
-material(0xdfe5eb,1,.2)
-);
-
-star.rotation.x=Math.PI/2;
-star.position.set(0,1.72,-.45);
-
-player.group.add(star);
-
+ spy.group.position.set(0,0,8);
 }
 
-
-/* NECK */
-
-const neck=new THREE.Mesh(
-new THREE.CylinderGeometry(.18,.2,.22,12),
-skinMat
-);
-
-neck.position.y=2.25;
-
-player.group.add(neck);
-
-
-/* HEAD */
-
-const head=new THREE.Mesh(
-new THREE.SphereGeometry(.48,24,18),
-skinMat
-);
-
-head.position.y=2.62;
-head.castShadow=true;
-
-player.group.add(head);
-
-
-/* MASK FOR WINTER SUIT */
-
-if(player.suit==="winter"){
-
-const mask=new THREE.Mesh(
-new THREE.SphereGeometry(.5,20,15),
-metalMat
-);
-
-mask.scale.set(1,.75,.85);
-mask.position.set(0,2.64,-.12);
-
-player.group.add(mask);
-
-const visor=new THREE.Mesh(
-new THREE.BoxGeometry(.48,.12,.03),
-material(0x10131a,1,.15)
-);
-
-visor.position.set(0,2.72,-.55);
-
-player.group.add(visor);
-
-}
-
-
-/* HAIR */
-
-if(player.suit!=="winter"){
-
-const hair=new THREE.Mesh(
-new THREE.SphereGeometry(.5,20,12),
-bodyMat
-);
-
-hair.scale.set(1.03,.45,1.03);
-hair.position.y=2.88;
-
-player.group.add(hair);
-
-}
-
-
-/* OLD MAN LOGAN COAT */
-
-if(player.suit==="oldlogan"){
-
-const coat=new THREE.Mesh(
-new THREE.BoxGeometry(1.35,1.6,.72),
-material(0x473226,0,.9)
-);
-
-coat.position.set(0,1.45,.05);
-coat.scale.set(1,.9,1);
-
-player.group.add(coat);
-
-}
-
-
-/* ARMS */
-
-for(const side of[-1,1]){
-
-const shoulder=new THREE.Mesh(
-new THREE.SphereGeometry(.27,16,12),
-bodyMat
-);
-
-shoulder.position.set(side*.62,2.05,0);
-
-player.group.add(shoulder);
-
-
-const upper=new THREE.Mesh(
-new THREE.CapsuleGeometry(.19,.58,5,10),
-bodyMat
-);
-
-upper.position.set(side*.72,1.68,0);
-upper.rotation.z=side*.12;
-
-player.group.add(upper);
-
-
-/* METAL WINTER ARM */
-
-const forearmMaterial=
-player.suit==="winter"&&side===-1?
-metalMat:
-skinMat;
-
-const fore=new THREE.Mesh(
-new THREE.CapsuleGeometry(.16,.52,5,10),
-forearmMaterial
-);
-
-fore.position.set(side*.78,1.25,-.05);
-fore.rotation.z=side*.08;
-
-player.group.add(fore);
-
-
-/* CLAWS */
-
-for(let i=0;i<3;i++){
-
-const claw=new THREE.Mesh(
-new THREE.ConeGeometry(.045,.75,10),
-metalMat
-);
-
-claw.rotation.x=Math.PI/2;
-
-claw.position.set(
-side*(.82+i*.055),
-1.12+i*.035,
--.43
-);
-
-player.group.add(claw);
-
-player.claws.push(claw);
-
-}
-
-
-/* LEGS */
-
-const thigh=new THREE.Mesh(
-new THREE.CapsuleGeometry(.23,.65,5,10),
-bootMat
-);
-
-thigh.position.set(side*.29,.72,0);
-
-player.group.add(thigh);
-
-
-const shin=new THREE.Mesh(
-new THREE.CapsuleGeometry(.18,.58,5,10),
-bootMat
-);
-
-shin.position.set(side*.29,.25,-.03);
-
-player.group.add(shin);
-
-
-const foot=new THREE.Mesh(
-new THREE.BoxGeometry(.35,.2,.65),
-bootMat
-);
-
-foot.position.set(side*.29,.05,-.16);
-
-player.group.add(foot);
-
-}
-
-player.group.position.set(0,0,8);
-
-}
-
-createPlayer();
-
-
-/* ENEMIES */
+createSpy();
 
 const enemies=[];
 
 function createEnemy(x,z){
 
-const g=new THREE.Group();
+ const g=new THREE.Group();
 
-const armor=material(0x762525,0,.6);
-const dark=material(0x17191f,0,.6);
-const skin=material(0x8f5b48,0,.7);
+ const armor=mat(0x722727,0,.65);
+ const dark=mat(0x16191f,0,.6);
+ const skin=mat(0x8f5b48,0,.7);
 
+ const body=new THREE.Mesh(
+  new THREE.CapsuleGeometry(.43,.7,5,10),
+  armor
+ );
+ body.position.y=1.45;
+ g.add(body);
 
-const torso=new THREE.Mesh(
-new THREE.CapsuleGeometry(.43,.7,5,10),
-armor
-);
+ const head=new THREE.Mesh(
+  new THREE.SphereGeometry(.36,18,14),
+  skin
+ );
+ head.position.y=2.25;
+ g.add(head);
 
-torso.position.y=1.45;
+ for(const side of[-1,1]){
+  const arm=new THREE.Mesh(
+   new THREE.CapsuleGeometry(.15,.7,5,10),
+   armor
+  );
+  arm.position.set(side*.55,1.45,0);
+  g.add(arm);
 
-g.add(torso);
+  const leg=new THREE.Mesh(
+   new THREE.CapsuleGeometry(.18,.7,5,10),
+   dark
+  );
+  leg.position.set(side*.22,.55,0);
+  g.add(leg);
+ }
 
+ g.position.set(x,0,z);
+ scene.add(g);
 
-const head=new THREE.Mesh(
-new THREE.SphereGeometry(.36,18,14),
-skin
-);
-
-head.position.y=2.25;
-
-g.add(head);
-
-
-for(const side of[-1,1]){
-
-const arm=new THREE.Mesh(
-new THREE.CapsuleGeometry(.15,.7,5,10),
-armor
-);
-
-arm.position.set(side*.55,1.45,0);
-arm.rotation.z=side*.2;
-
-g.add(arm);
-
-
-const leg=new THREE.Mesh(
-new THREE.CapsuleGeometry(.18,.7,5,10),
-dark
-);
-
-leg.position.set(side*.22,.55,0);
-
-g.add(leg);
-
-}
-
-g.position.set(x,0,z);
-
-scene.add(g);
-
-enemies.push({
-group:g,
-health:100,
-alive:true,
-speed:1.4+Math.random()*1.4
-});
-
+ enemies.push({
+  group:g,
+  health:100,
+  alive:true,
+  speed:1.4+Math.random()*1.4,
+  hitTimer:0
+ });
 }
 
 for(let i=0;i<12;i++){
-
-const angle=Math.random()*Math.PI*2;
-const distance=20+Math.random()*40;
-
-createEnemy(
-Math.cos(angle)*distance,
-10+Math.sin(angle)*distance
-);
-
+ const a=Math.random()*Math.PI*2;
+ const d=20+Math.random()*40;
+ createEnemy(Math.cos(a)*d,10+Math.sin(a)*d);
 }
-
-
-/* INPUT */
 
 const keys={};
 
 addEventListener("keydown",e=>{
+ keys[e.code]=true;
 
-keys[e.code]=true;
-
-if(e.code==="Space")jump();
-if(e.code==="KeyE")attack();
-if(e.code==="KeyQ")dodge();
-if(e.code==="KeyR")rage();
-
+ if(e.code==="Space")jump();
+ if(e.code==="KeyR")reload();
+ if(e.code==="KeyF")adrenaline();
 });
 
-addEventListener("keyup",e=>{
-keys[e.code]=false;
-});
-
-
-/* CAMERA LOOK */
+addEventListener("keyup",e=>keys[e.code]=false);
 
 let lastX=null;
 let lastY=null;
 
 addEventListener("mousemove",e=>{
-
-if(lastX!==null){
-
-const dx=e.clientX-lastX;
-const dy=e.clientY-lastY;
-
-player.yaw-=dx*.006;
-player.pitch-=dy*.003;
-
-player.pitch=
-Math.max(-.35,
-Math.min(.55,player.pitch));
-
-}
-
-lastX=e.clientX;
-lastY=e.clientY;
-
+ if(lastX!==null){
+  spy.yaw-=(e.clientX-lastX)*.006;
+  spy.pitch-=(e.clientY-lastY)*.003;
+  spy.pitch=Math.max(-.35,Math.min(.5,spy.pitch));
+ }
+ lastX=e.clientX;
+ lastY=e.clientY;
 });
-
 
 addEventListener("mouseleave",()=>{
-
-lastX=null;
-lastY=null;
-
+ lastX=null;
+ lastY=null;
 });
 
-
-/* ATTACK */
-
-function attack(){
-
-if(player.attacking)return;
-
-player.attacking=true;
-player.attackTime=.35;
-
-player.combo++;
-player.comboTimer=2;
-
-player.rage=
-Math.min(100,player.rage+10);
-
-const forward=new THREE.Vector3(
--Math.sin(player.yaw),
-0,
--Math.cos(player.yaw)
-);
-
-enemies.forEach(enemy=>{
-
-if(!enemy.alive)return;
-
-const distance=
-enemy.group.position.distanceTo(
-player.group.position
-);
-
-if(distance<4){
-
-enemy.health-=
-30+(player.combo*5);
-
-enemy.group.position.add(
-forward.clone().multiplyScalar(2)
-);
-
-if(enemy.health<=0){
-
-enemy.alive=false;
-
-scene.remove(enemy.group);
-
-player.xp+=25;
-
-if(player.xp>=100){
-
-player.xp-=100;
-player.level++;
-
-message("LEVEL UP!");
-
-}
-
-}
-
-}
-
+addEventListener("mousedown",e=>{
+ if(e.button===0)shoot();
 });
 
-updateUI();
+function shoot(){
 
+ if(spy.reload>0)return;
+
+ if(spy.ammo<=0){
+  reload();
+  return;
+ }
+
+ spy.ammo--;
+
+ spy.shooting=true;
+ spy.shootTimer=.12;
+
+ const forward=new THREE.Vector3(
+  -Math.sin(spy.yaw),
+  0,
+  -Math.cos(spy.yaw)
+ );
+
+ const origin=spy.group.position.clone();
+ origin.y+=1.4;
+
+ let closest=null;
+ let closestDistance=999;
+
+ enemies.forEach(enemy=>{
+  if(!enemy.alive)return;
+
+  const target=enemy.group.position.clone();
+  target.y+=1.3;
+
+  const toTarget=target.clone().sub(origin);
+  const distance=toTarget.length();
+  toTarget.normalize();
+
+  if(forward.dot(toTarget)>.97 && distance<35 && distance<closestDistance){
+   closest=enemy;
+   closestDistance=distance;
+  }
+ });
+
+ if(closest){
+
+  closest.health-=35;
+  closest.hitTimer=.15;
+
+  closest.group.position.add(
+   forward.clone().multiplyScalar(.8)
+  );
+
+  spy.combo++;
+  spy.comboTimer=2;
+  spy.adrenaline=Math.min(100,spy.adrenaline+8);
+
+  if(closest.health<=0){
+   closest.alive=false;
+   scene.remove(closest.group);
+   spy.xp+=25;
+
+   if(spy.xp>=100){
+    spy.xp-=100;
+    spy.level++;
+    message("LEVEL UP!");
+   }
+  }
+ }
+
+ updateUI();
 }
 
+function reload(){
 
-/* JUMP */
+ if(spy.reload>0||spy.ammo===spy.maxAmmo)return;
+
+ spy.reload=1.2;
+ message("RELOADING");
+}
 
 function jump(){
 
-if(player.group.position.y<=.02){
-
-player.velocity.y=9;
-
+ if(spy.group.position.y<=.02){
+  spy.velocity.y=9;
+ }
 }
 
+function adrenaline(){
+
+ if(spy.adrenaline<100||spy.adrenalineMode)return;
+
+ spy.adrenaline=0;
+ spy.adrenalineMode=true;
+ spy.adrenalineTime=10;
+ message("ADRENALINE MODE!");
 }
-
-
-/* DODGE */
-
-function dodge(){
-
-const direction=new THREE.Vector3(
-Math.sin(player.yaw),
-0,
-Math.cos(player.yaw)
-);
-
-player.group.position.add(
-direction.multiplyScalar(-5)
-);
-
-}
-
-
-/* RAGE */
-
-function rage(){
-
-if(player.rage<100||player.rageMode)return;
-
-player.rage=0;
-player.rageMode=true;
-player.rageTime=15;
-
-message("RAGE MODE!");
-
-}
-
-
-/* MESSAGE */
 
 function message(text){
 
-const m=document.getElementById("message");
+ const m=document.getElementById("message");
+ m.textContent=text;
+ m.style.opacity=1;
 
-m.textContent=text;
-m.style.opacity=1;
-
-setTimeout(()=>{
-m.style.opacity=0;
-},1000);
-
+ setTimeout(()=>{
+  m.style.opacity=0;
+ },900);
 }
-
-
-/* UI */
 
 function updateUI(){
 
-document.getElementById("level").textContent=
-player.level;
-
-document.getElementById("xp").textContent=
-Math.floor(player.xp);
-
-document.getElementById("rageFill").style.width=
-player.rage+"%";
-
-document.getElementById("combo").textContent=
-"COMBO x"+Math.floor(player.combo);
-
-const defeated=
-enemies.filter(e=>!e.alive).length;
-
-document.getElementById("missionProgress").textContent=
-defeated+" / 10";
+ document.getElementById("level").textContent=spy.level;
+ document.getElementById("xp").textContent=Math.floor(spy.xp);
+ document.getElementById("rageFill").style.width=spy.adrenaline+"%";
+ document.getElementById("combo").textContent=
+ "COMBO x"+Math.floor(spy.combo);
 
 }
-
-
-/* UPDATE */
 
 function update(dt){
 
-const move=new THREE.Vector3();
+ const move=new THREE.Vector3();
 
-if(keys.KeyW)move.z-=1;
-if(keys.KeyS)move.z+=1;
-if(keys.KeyA)move.x-=1;
-if(keys.KeyD)move.x+=1;
+ if(keys.KeyW)move.z-=1;
+ if(keys.KeyS)move.z+=1;
+ if(keys.KeyA)move.x-=1;
+ if(keys.KeyD)move.x+=1;
 
-if(move.length()>0){
+ if(move.length()>0){
 
-move.normalize();
+  move.normalize();
 
-const forward=new THREE.Vector3(
--Math.sin(player.yaw),
-0,
--Math.cos(player.yaw)
-);
+  const forward=new THREE.Vector3(
+   -Math.sin(spy.yaw),0,-Math.cos(spy.yaw)
+  );
 
-const right=new THREE.Vector3(
-Math.cos(player.yaw),
-0,
--Math.sin(player.yaw)
-);
+  const right=new THREE.Vector3(
+   Math.cos(spy.yaw),0,-Math.sin(spy.yaw)
+  );
 
-const direction=
-right.clone().multiplyScalar(move.x)
-.add(
-forward.clone().multiplyScalar(move.z)
-);
+  const direction=
+   right.clone().multiplyScalar(move.x)
+   .add(forward.clone().multiplyScalar(move.z));
 
-let speed=
-keys.ShiftLeft||keys.ShiftRight?
-12:8;
+  let speed=keys.ShiftLeft||keys.ShiftRight?12:8;
 
-if(player.rageMode)
-speed*=1.5;
+  if(spy.adrenalineMode)speed*=1.5;
 
-player.group.position.add(
-direction.multiplyScalar(speed*dt)
-);
+  spy.group.position.add(
+   direction.multiplyScalar(speed*dt)
+  );
+ }
 
+ spy.velocity.y-=24*dt;
+ spy.group.position.y+=spy.velocity.y*dt;
+
+ if(spy.group.position.y<0){
+  spy.group.position.y=0;
+  spy.velocity.y=0;
+ }
+
+ spy.group.rotation.y=spy.yaw;
+
+ enemies.forEach(enemy=>{
+
+  if(!enemy.alive)return;
+
+  const distance=
+   enemy.group.position.distanceTo(spy.group.position);
+
+  if(distance<35&&distance>2.5){
+
+   const direction=
+    spy.group.position.clone()
+    .sub(enemy.group.position)
+    .normalize();
+
+   enemy.group.position.add(
+    direction.multiplyScalar(enemy.speed*dt)
+   );
+
+   enemy.group.lookAt(spy.group.position);
+  }
+
+  if(enemy.hitTimer>0){
+   enemy.hitTimer-=dt;
+  }
+ });
+
+ if(spy.shooting){
+
+  spy.shootTimer-=dt;
+
+  if(spy.shootTimer<=0){
+   spy.shooting=false;
+  }
+ }
+
+ if(spy.reload>0){
+
+  spy.reload-=dt;
+
+  if(spy.reload<=0){
+   spy.ammo=spy.maxAmmo;
+   message("RELOADED");
+  }
+ }
+
+ if(spy.comboTimer>0){
+  spy.comboTimer-=dt;
+ }else{
+  spy.combo=0;
+ }
+
+ if(spy.adrenalineMode){
+
+  spy.adrenalineTime-=dt;
+
+  if(spy.adrenalineTime<=0){
+   spy.adrenalineMode=false;
+   message("ADRENALINE ENDED");
+  }
+ }
+
+ updateUI();
 }
-
-player.velocity.y-=24*dt;
-
-player.group.position.y+=
-player.velocity.y*dt;
-
-if(player.group.position.y<0){
-
-player.group.position.y=0;
-player.velocity.y=0;
-
-}
-
-player.group.rotation.y=
-player.yaw;
-
-
-/* ENEMY AI */
-
-enemies.forEach(enemy=>{
-
-if(!enemy.alive)return;
-
-const distance=
-enemy.group.position.distanceTo(
-player.group.position
-);
-
-if(distance<35&&distance>2.5){
-
-const direction=
-player.group.position.clone()
-.sub(enemy.group.position)
-.normalize();
-
-enemy.group.position.add(
-direction.multiplyScalar(
-enemy.speed*dt
-)
-);
-
-enemy.group.lookAt(
-player.group.position
-);
-
-}
-
-});
-
-
-/* CLAW ANIMATION */
-
-if(player.attacking){
-
-player.attackTime-=dt;
-
-const swing=
-Math.sin(
-(1-player.attackTime/.35)*Math.PI
-)*.7;
-
-player.claws.forEach(claw=>{
-
-claw.rotation.x=
-Math.PI/2-swing;
-
-});
-
-if(player.attackTime<=0){
-
-player.attacking=false;
-
-player.claws.forEach(claw=>{
-claw.rotation.x=Math.PI/2;
-});
-
-}
-
-}
-
-
-/* RAGE TIMER */
-
-if(player.rageMode){
-
-player.rageTime-=dt;
-
-if(player.rageTime<=0){
-
-player.rageMode=false;
-
-message("RAGE ENDED");
-
-}
-
-}
-
-
-/* COMBO TIMER */
-
-if(player.comboTimer>0){
-
-player.comboTimer-=dt;
-
-}else{
-
-player.combo=0;
-
-}
-
-updateUI();
-
-}
-
-
-/* CAMERA */
 
 function updateCamera(){
 
-const target=
-player.group.position.clone();
+ const target=spy.group.position.clone();
+ target.y+=1.7;
 
-target.y+=1.8;
+ const distance=8;
 
-const distance=8;
+ const offset=new THREE.Vector3(
+  Math.sin(spy.yaw)*distance,
+  4-spy.pitch*3,
+  Math.cos(spy.yaw)*distance
+ );
 
-const offset=new THREE.Vector3(
-Math.sin(player.yaw)*distance,
-4-player.pitch*3,
-Math.cos(player.yaw)*distance
-);
+ camera.position.lerp(
+  target.clone().add(offset),
+  .12
+ );
 
-camera.position.lerp(
-target.clone().add(offset),
-.12
-);
-
-camera.lookAt(
-target.x,
-target.y+player.pitch*2,
-target.z
-);
-
+ camera.lookAt(
+  target.x,
+  target.y+spy.pitch*2,
+  target.z
+ );
 }
 
-
-/* SUIT MENU */
-
-document
-.getElementById("suitButton")
-.addEventListener("click",()=>{
-
-document.getElementById("suitMenu")
-.style.display="block";
-
-});
-
-
-document
-.getElementById("closeSuit")
-.addEventListener("click",()=>{
-
-document.getElementById("suitMenu")
-.style.display="none";
-
-});
-
-
-document
-.querySelectorAll("[data-suit]")
-.forEach(button=>{
-
-button.addEventListener("click",()=>{
-
-const suit=
-button.getAttribute("data-suit");
-
-if(suits[suit]){
-
-player.suit=suit;
-
-createPlayer();
-
-message(
-suits[suit].name+
-" EQUIPPED"
+document.getElementById("rageButton")?.addEventListener(
+ "click",
+ adrenaline
 );
 
-}
+document.getElementById("attackButton")?.addEventListener(
+ "touchstart",
+ e=>{
+  e.preventDefault();
+  shoot();
+ }
+);
 
-document.getElementById("suitMenu")
-.style.display="none";
+document.getElementById("jumpButton")?.addEventListener(
+ "touchstart",
+ e=>{
+  e.preventDefault();
+  jump();
+ }
+);
 
-});
+document.getElementById("dodgeButton")?.addEventListener(
+ "touchstart",
+ e=>{
+  e.preventDefault();
 
-});
+  const direction=new THREE.Vector3(
+   Math.sin(spy.yaw),
+   0,
+   Math.cos(spy.yaw)
+  );
 
-
-/* BUTTONS */
-
-document
-.getElementById("rageButton")
-.addEventListener("click",rage);
-
-
-document
-.getElementById("attackButton")
-.addEventListener("touchstart",e=>{
-
-e.preventDefault();
-attack();
-
-});
-
-
-document
-.getElementById("jumpButton")
-.addEventListener("touchstart",e=>{
-
-e.preventDefault();
-jump();
-
-});
-
-
-document
-.getElementById("dodgeButton")
-.addEventListener("touchstart",e=>{
-
-e.preventDefault();
-dodge();
-
-});
-
-
-/* RESIZE */
+  spy.group.position.add(
+   direction.multiplyScalar(-5)
+  );
+ }
+);
 
 addEventListener("resize",()=>{
-
-camera.aspect=
-innerWidth/innerHeight;
-
-camera.updateProjectionMatrix();
-
-renderer.setSize(
-innerWidth,
-innerHeight
-);
-
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
 });
-
-
-/* GAME LOOP */
 
 let last=performance.now();
 
 function animate(now){
 
-requestAnimationFrame(animate);
+ requestAnimationFrame(animate);
 
-const dt=
-Math.min(
-(now-last)/1000,
-.05
-);
+ const dt=Math.min((now-last)/1000,.05);
+ last=now;
 
-last=now;
+ update(dt);
+ updateCamera();
 
-update(dt);
-updateCamera();
-
-renderer.render(
-scene,
-camera
-);
-
+ renderer.render(scene,camera);
 }
 
 updateUI();
-
 animate(performance.now());
