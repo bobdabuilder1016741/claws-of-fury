@@ -1,1 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Claw Hero</title>
+<link rel="stylesheet" href="style.css">
+</head>
 
+<body>
+
+<div id="game"></div>
+
+<div id="hud">
+
+<div id="title">CLAW HERO</div>
+
+<div id="stats">
+LEVEL <span id="level">1</span>
+&nbsp;&nbsp;
+XP <span id="xp">0</span>/100
+</div>
+
+<div id="rageContainer">
+<div id="rageText">RAGE</div>
+<div id="rageBar">
+<div id="rageFill"></div>
+</div>
+</div>
+
+<div id="combo">COMBO x0</div>
+
+<button id="suitButton">SUITS</button>
+<button id="rageButton">RAGE</button>
+
+<div id="suitMenu">
+
+<h2>SUITS</h2>
+
+<button data-suit="classic">CLASSIC YELLOW & BLUE</button>
+<button data-suit="winter">WINTER SOLDIER</button>
+<button data-suit="oldlogan">OLD MAN LOGAN</button>
+<button data-suit="stealth">STEALTH</button>
+<button data-suit="arctic">ARCTIC</button>
+<button data-suit="future">FUTURE</button>
+
+<button id="closeSuit">CLOSE</button>
+
+</div>
+
+<div id="mission">
+<b>MISSION</b><br>
+Defeat the enemies<br>
+<span id="missionProgress">0 / 10</span>
+</div>
+
+</div>
+
+<div id="mobileControls">
+
+<div id="joystick">
+<div id="stick"></div>
+</div>
+
+<button id="attackButton">CLAW</button>
+<button id="jumpButton">JUMP</button>
+<button id="dodgeButton">DODGE</button>
+
+</div>
+
+<div id="message"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="game.js"></script>
+
+</body>
+</html>
